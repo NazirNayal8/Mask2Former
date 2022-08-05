@@ -164,7 +164,34 @@ class MaskFormer(nn.Module):
     def device(self):
         return self.pixel_mean.device
 
-    def forward(self, batched_inputs):
+    def inference(self, x):
+        """
+        Custom implemented function to extract logits.
+        """
+
+        features = self.backbone(x)
+        outputs = self.sem_seg_head(features)
+
+        mask_cls_results = outputs["pred_logits"]
+        mask_pred_results = outputs["pred_masks"]
+        
+        mask_pred_results = F.interpolate(
+            mask_pred_results,
+            size=(x.shape[-2], x.shape[-1]),
+            mode="bilinear",
+            align_corners=False,
+        )
+
+
+        return mask_cls_results, mask_pred_results
+
+        r = retry_if_cuda_oom(self.semantic_inference)(mask_cls_results[0], mask_pred_results[0])
+        r = retry_if_cuda_oom(sem_seg_postprocess)(r, x.shape, x.shape[-2], x.shape[-1])
+
+
+        return r
+
+    def forward(self, batched_inputs, include_void=False, return_separately=False):
         """
         Args:
             batched_inputs: a list, batched outputs of :class:`DatasetMapper`.
@@ -196,7 +223,7 @@ class MaskFormer(nn.Module):
 
         features = self.backbone(images.tensor)
         outputs = self.sem_seg_head(features)
-
+        self.training=False
         if self.training:
             # mask classification target
             if "instances" in batched_inputs[0]:
@@ -244,7 +271,10 @@ class MaskFormer(nn.Module):
 
                 # semantic segmentation inference
                 if self.semantic_on:
-                    r = retry_if_cuda_oom(self.semantic_inference)(mask_cls_result, mask_pred_result)
+                    if include_void:
+                        r = retry_if_cuda_oom(self.semantic_inference_with_void)(mask_cls_result, mask_pred_result)
+                    else:
+                        r = retry_if_cuda_oom(self.semantic_inference)(mask_cls_result, mask_pred_result)
                     if not self.sem_seg_postprocess_before_inference:
                         r = retry_if_cuda_oom(sem_seg_postprocess)(r, image_size, height, width)
                     processed_results[-1]["sem_seg"] = r
@@ -258,6 +288,9 @@ class MaskFormer(nn.Module):
                 if self.instance_on:
                     instance_r = retry_if_cuda_oom(self.instance_inference)(mask_cls_result, mask_pred_result)
                     processed_results[-1]["instances"] = instance_r
+
+            if return_separately:
+                return processed_results, mask_cls_result, mask_pred_result
 
             return processed_results
 
@@ -279,6 +312,12 @@ class MaskFormer(nn.Module):
 
     def semantic_inference(self, mask_cls, mask_pred):
         mask_cls = F.softmax(mask_cls, dim=-1)[..., :-1]
+        mask_pred = mask_pred.sigmoid()
+        semseg = torch.einsum("qc,qhw->chw", mask_cls, mask_pred)
+        return semseg
+
+    def semantic_inference_with_void(self, mask_cls, mask_pred):
+        mask_cls = F.softmax(mask_cls, dim=-1)
         mask_pred = mask_pred.sigmoid()
         semseg = torch.einsum("qc,qhw->chw", mask_cls, mask_pred)
         return semseg
