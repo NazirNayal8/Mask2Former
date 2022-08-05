@@ -223,7 +223,7 @@ class MaskFormer(nn.Module):
 
         features = self.backbone(images.tensor)
         outputs = self.sem_seg_head(features)
-        self.training=False
+
         if self.training:
             # mask classification target
             if "instances" in batched_inputs[0]:
