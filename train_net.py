@@ -16,6 +16,8 @@ import copy
 import itertools
 import logging
 import os
+import wandb
+import yaml
 
 from collections import OrderedDict
 from typing import Any, Dict, List, Set
@@ -297,6 +299,10 @@ def setup(args):
 
 def main(args):
     cfg = setup(args)
+
+    if cfg.SOLVER.USE_WANDB:
+        cfg_wandb = yaml.safe_load(cfg.dump())
+        _ = wandb.init(project=cfg.SOLVER.WANDB_PROJECT, name=cfg.SOLVER.WANDB_NAME, config=cfg_wandb, sync_tensorboard=True)
 
     if args.eval_only:
         model = Trainer.build_model(cfg)

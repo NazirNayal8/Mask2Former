@@ -43,6 +43,7 @@ class MaskFormer(nn.Module):
         panoptic_on: bool,
         instance_on: bool,
         test_topk_per_image: int,
+        force_region_partition: bool
     ):
         """
         Args:
@@ -89,6 +90,7 @@ class MaskFormer(nn.Module):
         self.instance_on = instance_on
         self.panoptic_on = panoptic_on
         self.test_topk_per_image = test_topk_per_image
+        self.force_region_partition = force_region_partition
 
         if not self.semantic_on:
             assert self.sem_seg_postprocess_before_inference
@@ -158,6 +160,7 @@ class MaskFormer(nn.Module):
             "instance_on": cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON,
             "panoptic_on": cfg.MODEL.MASK_FORMER.TEST.PANOPTIC_ON,
             "test_topk_per_image": cfg.TEST.DETECTIONS_PER_IMAGE,
+            "force_region_partition": cfg.SOLVER.FORCE_REGION_PARTITION
         }
 
     @property
@@ -223,6 +226,10 @@ class MaskFormer(nn.Module):
 
         features = self.backbone(images.tensor)
         outputs = self.sem_seg_head(features)
+
+        if self.force_region_partition:
+            B, N, H, W = outputs["pred_masks"].shape
+            outputs["pred_masks"] = outputs["pred_masks"].softmax(dim=1)
 
         if self.training:
             # mask classification target
