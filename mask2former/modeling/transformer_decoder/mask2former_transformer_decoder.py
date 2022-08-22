@@ -371,7 +371,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         # disable mask, it does not affect performance
         del mask
-
+        
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
             pos.append(self.pe_layer(x[i], None).flatten(2))
@@ -381,7 +381,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        _, bs, _ = src[0].shape
+        bs = mask_features.shape[0]
+        if len(size_list) == 0:
+            size_list.append(mask_features.shape[-2:])
 
         # QxNxC
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
