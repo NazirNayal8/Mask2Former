@@ -544,11 +544,20 @@ class SimpleTransformerDecoder(nn.Module):
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
+        self.cross_attention = CrossAttentionLayer(
+            d_model=hidden_dim,
+            nhead=nheads,
+            dropout=0.0,
+            normalize_before=pre_norm,
+        )
+
         self.decoder_norm = nn.LayerNorm(hidden_dim)
 
         self.num_queries = num_queries
         # learnable query features
         self.query_feat = nn.Embedding(num_queries, hidden_dim)
+        # positional embeddings
+        self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
         # output FFNs
         if self.mask_classification:
@@ -590,16 +599,30 @@ class SimpleTransformerDecoder(nn.Module):
         bs = mask_features.shape[0]
 
         # QxNxC
+        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
         output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
 
         predictions_class = []
         predictions_mask = []
 
+        _, _, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=mask_features.shape[-2:])
+
+        mask_features_vec = mask_features.flatten(2).permute(2, 0, 1)
+        mask_features_pos = self.pe_layer(mask_features).flatten(2).permute(2, 0, 1)
+        output = self.cross_attention(
+                output, mask_features_vec,
+                memory_mask=attn_mask,
+                memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                pos=mask_features_pos, query_pos=query_embed
+            )
+        
         # prediction heads on learnable query features
         outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=mask_features.shape[-2:])
-        predictions_class.append(outputs_class)
+        
         predictions_mask.append(outputs_mask)
-
+        predictions_class.append(outputs_class)
+        
+        
         out = {
             'pred_logits': outputs_class,
             'pred_masks': outputs_mask,
