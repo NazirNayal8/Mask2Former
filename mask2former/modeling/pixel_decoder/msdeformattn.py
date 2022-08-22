@@ -251,7 +251,7 @@ class MSDeformAttnPixelDecoder(nn.Module):
         )
         weight_init.c2_xavier_fill(self.mask_features)
         
-        self.maskformer_num_feature_levels = 3  # always use 3 scales
+        self.maskformer_num_feature_levels = len(self.transformer_in_features)  # the number of features to be passed to transformer decoder
         self.common_stride = common_stride
 
         # extra fpn levels

@@ -247,6 +247,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         pre_norm: bool,
         mask_dim: int,
         enforce_input_project: bool,
+        num_feature_levels: int = 3,
     ):
         """
         NOTE: this interface is experimental.
@@ -318,7 +319,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
         # level embedding (we always use 3 scales)
-        self.num_feature_levels = 3
+        self.num_feature_levels = num_feature_levels
         self.level_embed = nn.Embedding(self.num_feature_levels, hidden_dim)
         self.input_proj = nn.ModuleList()
         for _ in range(self.num_feature_levels):
@@ -357,6 +358,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         ret["enforce_input_project"] = cfg.MODEL.MASK_FORMER.ENFORCE_INPUT_PROJ
 
         ret["mask_dim"] = cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
+        ret["num_feature_levels"] = len(cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES)
 
         return ret
 
@@ -461,7 +463,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             return [{"pred_masks": b} for b in outputs_seg_masks[:-1]]
 
 @TRANSFORMER_DECODER_REGISTRY.register()
-class SimpleDecoder(nn.Module):
+class SimpleTransformerDecoder(nn.Module):
 
     _version = 2
 
@@ -537,7 +539,7 @@ class SimpleDecoder(nn.Module):
         
         # define Transformer decoder here
         self.num_heads = nheads
-        self.num_layers = 1
+        self.num_layers = dec_layers
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
@@ -579,7 +581,7 @@ class SimpleDecoder(nn.Module):
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
         # level embedding (we always use the last scale)
-        self.num_feature_levels = 1
+        self.num_feature_levels = min(3, self.num_layers)
         self.level_embed = nn.Embedding(self.num_feature_levels, hidden_dim)
         self.input_proj = nn.ModuleList()
         for _ in range(self.num_feature_levels):
