@@ -192,12 +192,6 @@ class MSDeformAttnPixelDecoder(nn.Module):
             norm (str or callable): normalization for all conv layers
         """
         super().__init__()
-        
-        self.maskformer_num_feature_levels = len(transformer_in_features)  # the number of features to be passed to transformer decoder
-        
-        if len(transformer_in_features) == 0:
-            transformer_in_features = ['res5']
-    
         transformer_input_shape = {
             k: v for k, v in input_shape.items() if k in transformer_in_features
         }
@@ -224,14 +218,12 @@ class MSDeformAttnPixelDecoder(nn.Module):
                     nn.GroupNorm(32, conv_dim),
                 ))
             self.input_proj = nn.ModuleList(input_proj_list)
-        elif self.transformer_num_feature_levels > 0:
+        else:
             self.input_proj = nn.ModuleList([
                 nn.Sequential(
                     nn.Conv2d(transformer_in_channels[-1], conv_dim, kernel_size=1),
                     nn.GroupNorm(32, conv_dim),
                 )])
-        else:
-            self.input_proj = nn.ModuleList([])
 
         for proj in self.input_proj:
             nn.init.xavier_uniform_(proj[0].weight, gain=1)
@@ -259,10 +251,11 @@ class MSDeformAttnPixelDecoder(nn.Module):
         )
         weight_init.c2_xavier_fill(self.mask_features)
         
+        self.maskformer_num_feature_levels = len(self.transformer_in_features)  # the number of features to be passed to transformer decoder
         self.common_stride = common_stride
 
         # extra fpn levels
-        stride = min(self.transformer_feature_strides) if len(self.transformer_feature_strides) > 0 else 32
+        stride = min(self.transformer_feature_strides)
         self.num_fpn_levels = int(np.log2(stride) - np.log2(self.common_stride))
 
         lateral_convs = []

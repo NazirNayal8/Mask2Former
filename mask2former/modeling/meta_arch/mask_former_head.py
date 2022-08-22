@@ -93,7 +93,7 @@ class MaskFormerHead(nn.Module):
             transformer_predictor_in_channels = cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
         elif cfg.MODEL.MASK_FORMER.TRANSFORMER_IN_FEATURE == "multi_scale_pixel_decoder":  # for maskformer2
             transformer_predictor_in_channels = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
-        elif cfg.MODEl.MASK_FORMER_TRANSFORMER_IN_FEATURE == 'simple_transformer_decoder':
+        elif cfg.MODEL.MASK_FORMER.TRANSFORMER_IN_FEATURE == 'simple_transformer_decoder':
             transformer_predictor_in_channels = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
         else:
             transformer_predictor_in_channels = input_shape[cfg.MODEL.MASK_FORMER.TRANSFORMER_IN_FEATURE].channels
@@ -122,7 +122,7 @@ class MaskFormerHead(nn.Module):
         if self.transformer_in_feature == "multi_scale_pixel_decoder":
             predictions = self.predictor(multi_scale_features, mask_features, mask)
         elif self.transformer_in_feature == 'simple_transformer_decoder':
-            predictions = self.predictor(multi_scale_features, mask_features, mask)
+            predictions = self.predictor(mask_features, mask)
         else:
             if self.transformer_in_feature == "transformer_encoder":
                 assert (

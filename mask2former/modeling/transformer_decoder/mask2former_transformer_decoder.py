@@ -371,7 +371,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         # disable mask, it does not affect performance
         del mask
-        
+
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
             pos.append(self.pe_layer(x[i], None).flatten(2))
@@ -381,9 +381,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        bs = mask_features.shape[0]
-        if len(size_list) == 0:
-            size_list.append(mask_features.shape[-2:])
+        _, bs, _ = src[0].shape
 
         # QxNxC
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
@@ -528,7 +526,7 @@ class SimpleTransformerDecoder(nn.Module):
 
         NOTE: Remember to add the following to training script
             TRANSFORMER_DECODER_NAME: SimpleDecoder
-            TRANSFORMER_IN_FEATURE: simple_decoder
+            TRANSFORMER_IN_FEATURE: simple_transformer_decoder
         """
         super().__init__()
 
@@ -546,52 +544,11 @@ class SimpleTransformerDecoder(nn.Module):
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
-        for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_dim,
-                    nhead=nheads,
-                    dropout=0.0,
-                    normalize_before=pre_norm,
-                )
-            )
-
-            self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer(
-                    d_model=hidden_dim,
-                    nhead=nheads,
-                    dropout=0.0,
-                    normalize_before=pre_norm,
-                )
-            )
-
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_dim,
-                    dim_feedforward=dim_feedforward,
-                    dropout=0.0,
-                    normalize_before=pre_norm,
-                )
-            )
-
         self.decoder_norm = nn.LayerNorm(hidden_dim)
 
         self.num_queries = num_queries
         # learnable query features
         self.query_feat = nn.Embedding(num_queries, hidden_dim)
-        # learnable query p.e.
-        self.query_embed = nn.Embedding(num_queries, hidden_dim)
-
-        # level embedding (we always use the last scale)
-        self.num_feature_levels = min(3, self.num_layers)
-        self.level_embed = nn.Embedding(self.num_feature_levels, hidden_dim)
-        self.input_proj = nn.ModuleList()
-        for _ in range(self.num_feature_levels):
-            if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(Conv2d(in_channels, hidden_dim, kernel_size=1))
-                weight_init.c2_xavier_fill(self.input_proj[-1])
-            else:
-                self.input_proj.append(nn.Sequential())
 
         # output FFNs
         if self.mask_classification:
@@ -625,70 +582,27 @@ class SimpleTransformerDecoder(nn.Module):
 
         return ret
 
-    def forward(self, x, mask_features, mask = None):
-        # x is a list of multi-scale feature
-        assert len(x) == self.num_feature_levels
-        src = []
-        pos = []
-        size_list = []
+    def forward(self, mask_features, mask = None):
 
         # disable mask, it does not affect performance
         del mask
 
-        for i in range(self.num_feature_levels):
-            size_list.append(x[i].shape[-2:])
-            pos.append(self.pe_layer(x[i], None).flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
-
-            # flatten NxCxHxW to HWxNxC
-            pos[-1] = pos[-1].permute(2, 0, 1)
-            src[-1] = src[-1].permute(2, 0, 1)
-
-        _, bs, _ = src[0].shape
+        bs = mask_features.shape[0]
 
         # QxNxC
-        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
         output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
 
         predictions_class = []
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=mask_features.shape[-2:])
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
 
-        for i in range(self.num_layers):
-            level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
-            # attention: cross-attention first
-            output = self.transformer_cross_attention_layers[i](
-                output, src[level_index],
-                memory_mask=attn_mask,
-                memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                pos=pos[level_index], query_pos=query_embed
-            )
-
-            output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
-            )
-            
-            # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
-
-            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
-            predictions_class.append(outputs_class)
-            predictions_mask.append(outputs_mask)
-
-        assert len(predictions_class) == self.num_layers + 1
-
         out = {
-            'pred_logits': predictions_class[-1],
-            'pred_masks': predictions_mask[-1],
+            'pred_logits': outputs_class,
+            'pred_masks': outputs_mask,
             'aux_outputs': self._set_aux_loss(
                 predictions_class if self.mask_classification else None, predictions_mask
             )
