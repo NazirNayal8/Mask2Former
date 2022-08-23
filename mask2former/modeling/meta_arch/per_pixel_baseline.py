@@ -10,6 +10,8 @@ from detectron2.config import configurable
 from detectron2.layers import Conv2d, ShapeSpec, get_norm
 from detectron2.modeling import SEM_SEG_HEADS_REGISTRY
 
+from ..transformer_decoder.maskformer_transformer_decoder import build_transformer_decoder
+
 from ..transformer_decoder.maskformer_transformer_decoder import StandardTransformerDecoder
 from ..pixel_decoder.fpn import build_pixel_decoder
 
@@ -201,9 +203,11 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             in_channels = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
         else:
             in_channels = input_shape[ret["transformer_in_feature"]].channels
-        ret["transformer_predictor"] = StandardTransformerDecoder(
-            cfg, in_channels, mask_classification=False
-        )
+        ret["transformer_predictor"] = build_transformer_decoder(
+                cfg,
+                in_channels,
+                mask_classification=False,
+            ),
         ret["deep_supervision"] = cfg.MODEL.MASK_FORMER.DEEP_SUPERVISION
         return ret
 
