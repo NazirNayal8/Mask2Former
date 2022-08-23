@@ -115,6 +115,7 @@ class PerPixelBaselineHead(nn.Module):
 
     def losses(self, predictions, targets):
         predictions = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
+        print(predictions.shape, targets.shape)
         predictions = F.interpolate(
             predictions, scale_factor=self.common_stride, mode="bilinear", align_corners=False
         )
