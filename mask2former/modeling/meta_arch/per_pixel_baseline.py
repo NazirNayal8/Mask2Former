@@ -229,12 +229,18 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             return x, {}
 
     def layers(self, features):
+
+
         mask_features, transformer_encoder_features, _ = self.pixel_decoder.forward_features(features)
         if self.transformer_in_feature == "transformer_encoder":
             assert (
                 transformer_encoder_features is not None
             ), "Please use the TransformerEncoderPixelDecoder."
             predictions = self.predictor(transformer_encoder_features, mask_features)
+        elif self.transformer_in_feature == "multi_scale_pixel_decoder":
+            
+            mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features)
+            predictions = self.predictor(multi_scale_features, mask_features, None)
         else:
             predictions = self.predictor(features[self.transformer_in_feature], mask_features)
         if self.deep_supervision:
