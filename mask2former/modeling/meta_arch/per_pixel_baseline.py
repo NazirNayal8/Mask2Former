@@ -224,7 +224,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             In inference, returns (CxHxW logits, {})
         """
         x, aux_outputs = self.layers(features)
-        if self.training:
+        if not self.training:
             if self.deep_supervision:
                 losses = self.losses(x, targets)
                 for i, aux_output in enumerate(aux_outputs):
