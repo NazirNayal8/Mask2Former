@@ -197,6 +197,8 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
         ret["transformer_in_feature"] = cfg.MODEL.MASK_FORMER.TRANSFORMER_IN_FEATURE
         if cfg.MODEL.MASK_FORMER.TRANSFORMER_IN_FEATURE == "transformer_encoder":
             in_channels = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
+        elif cfg.MODEL.MASK_FORMER.TRANSFORMER_IN_FEATURE == "multi_scale_pixel_decoder":
+            in_channels = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
         else:
             in_channels = input_shape[ret["transformer_in_feature"]].channels
         ret["transformer_predictor"] = StandardTransformerDecoder(
