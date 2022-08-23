@@ -190,7 +190,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
         del self.predictor
 
         self.predictor = transformer_predictor
-        
+
         # I don't know why, but transformer_predictor is being given as a tuple, TODO: investigate this
         if isinstance(self.predictor, tuple):
             self.predictor = self.predictor[0]
@@ -251,7 +251,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
         elif self.transformer_in_feature == "multi_scale_pixel_decoder":
             
             mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features)
-            print(self.predictor)
+            
             predictions = self.predictor(multi_scale_features, mask_features, None)
         else:
             predictions = self.predictor(features[self.transformer_in_feature], mask_features)
