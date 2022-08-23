@@ -190,6 +190,11 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
         del self.predictor
 
         self.predictor = transformer_predictor
+        
+        # I don't know why, but transformer_predictor is being given as a tuple, TODO: investigate this
+        if isinstance(self.predictor, tuple):
+            self.predictor = self.predictor[0]
+        
         self.transformer_in_feature = transformer_in_feature
         self.deep_supervision = deep_supervision
 
