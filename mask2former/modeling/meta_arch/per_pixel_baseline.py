@@ -74,6 +74,9 @@ class PerPixelBaselineHead(nn.Module):
         *,
         num_classes: int,
         pixel_decoder: nn.Module,
+        num_points: int,
+        oversample_ratio,
+        importance_sample_ratio,
         loss_weight: float = 1.0,
         ignore_value: int = -1,
     ):
@@ -102,6 +105,11 @@ class PerPixelBaselineHead(nn.Module):
         )
         weight_init.c2_msra_fill(self.predictor)
 
+        # point rend params
+        self.num_points = num_points
+        self.oversample_ratio = oversample_ratio
+        self.importance_sample_ratio = importance_sample_ratio
+
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
         return {
@@ -112,6 +120,9 @@ class PerPixelBaselineHead(nn.Module):
             "num_classes": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             "pixel_decoder": build_pixel_decoder(cfg, input_shape),
             "loss_weight": cfg.MODEL.SEM_SEG_HEAD.LOSS_WEIGHT,
+            "num_points": cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            "oversample_ratio": cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
+            "importance_sample_ratio": cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         }
 
     def forward(self, features, targets=None):
