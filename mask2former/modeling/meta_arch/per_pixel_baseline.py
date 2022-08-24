@@ -148,7 +148,6 @@ class PerPixelBaselineHead(nn.Module):
     def losses(self, predictions, targets):
         predictions = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
         
-        predictions = predictions[:, None]
         targets = targets[:, None]
         with torch.no_grad():
             # sample point_coords
@@ -170,7 +169,7 @@ class PerPixelBaselineHead(nn.Module):
             predictions,
             point_coords,
             align_corners=False,
-        ).squeeze(1)
+        )
         
         loss = F.cross_entropy(
             point_logits, point_labels, reduction="mean", ignore_index=self.ignore_value
