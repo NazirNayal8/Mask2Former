@@ -157,7 +157,6 @@ class SetCriterion(nn.Module):
         # N x 1 x H x W
         src_masks = src_masks[:, None]
         target_masks = target_masks[:, None]
-        print(src_masks.shape, target_masks.shape)
         with torch.no_grad():
             # sample point_coords
             point_coords = get_uncertain_point_coords_with_randomness(

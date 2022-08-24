@@ -231,7 +231,7 @@ class MaskFormer(nn.Module):
             B, N, H, W = outputs["pred_masks"].shape
             outputs["pred_masks"] = outputs["pred_masks"].softmax(dim=1)
 
-        if not self.training:
+        if self.training:
             # mask classification target
             if "instances" in batched_inputs[0]:
                 gt_instances = [x["instances"].to(self.device) for x in batched_inputs]

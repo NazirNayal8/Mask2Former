@@ -3,17 +3,38 @@ import logging
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import fvcore.nn.weight_init as weight_init
+import torch
 from torch import nn
 from torch.nn import functional as F
 
 from detectron2.config import configurable
 from detectron2.layers import Conv2d, ShapeSpec, get_norm
 from detectron2.modeling import SEM_SEG_HEADS_REGISTRY
+from detectron2.projects.point_rend.point_features import (
+    get_uncertain_point_coords_with_randomness,
+    point_sample,
+)
 
 from ..transformer_decoder.maskformer_transformer_decoder import build_transformer_decoder
 
 from ..transformer_decoder.maskformer_transformer_decoder import StandardTransformerDecoder
 from ..pixel_decoder.fpn import build_pixel_decoder
+
+def calculate_uncertainty(logits):
+    """
+    We estimate uncerainty as L1 distance between 0.0 and the logit prediction in 'logits' for the
+        foreground class in `classes`.
+    Args:
+        logits (Tensor): A tensor of shape (R, 1, ...) for class-specific or
+            class-agnostic, where R is the total number of predicted masks in all images and C is
+            the number of foreground classes. The values are logits.
+    Returns:
+        scores (Tensor): A tensor of shape (R, 1, ...) that contains uncertainty scores with
+            the most uncertain locations having the highest uncertainty score.
+    """
+    assert logits.shape[1] == 1
+    gt_class_logits = logits.clone()
+    return -(torch.abs(gt_class_logits))
 
 
 @SEM_SEG_HEADS_REGISTRY.register()
@@ -116,11 +137,32 @@ class PerPixelBaselineHead(nn.Module):
     def losses(self, predictions, targets):
         predictions = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
         
-        predictions = F.interpolate(
-            predictions, scale_factor=self.common_stride, mode="bilinear", align_corners=False
-        )
+        predictions = predictions[:, None]
+        targets = targets[:, None]
+        with torch.no_grad():
+            # sample point_coords
+            point_coords = get_uncertain_point_coords_with_randomness(
+                predictions,
+                lambda logits: calculate_uncertainty(logits),
+                self.num_points,
+                self.oversample_ratio,
+                self.importance_sample_ratio,
+            )
+            # get gt labels
+            point_labels = point_sample(
+                targets,
+                point_coords,
+                align_corners=False,
+            ).squeeze(1)
+
+        point_logits = point_sample(
+            predictions,
+            point_coords,
+            align_corners=False,
+        ).squeeze(1)
+        
         loss = F.cross_entropy(
-            predictions, targets, reduction="mean", ignore_index=self.ignore_value
+            point_logits, point_labels, reduction="mean", ignore_index=self.ignore_value
         )
         losses = {"loss_sem_seg": loss * self.loss_weight}
         return losses
@@ -224,7 +266,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             In inference, returns (CxHxW logits, {})
         """
         x, aux_outputs = self.layers(features)
-        if self.training:
+        if not self.training:
             if self.deep_supervision:
                 losses = self.losses(x, targets)
                 for i, aux_output in enumerate(aux_outputs):
