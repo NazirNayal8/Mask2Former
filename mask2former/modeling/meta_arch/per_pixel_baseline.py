@@ -20,21 +20,21 @@ from ..transformer_decoder.maskformer_transformer_decoder import build_transform
 from ..transformer_decoder.maskformer_transformer_decoder import StandardTransformerDecoder
 from ..pixel_decoder.fpn import build_pixel_decoder
 
-def calculate_uncertainty(logits):
+def calculate_uncertainty(sem_seg_logits):
     """
-    We estimate uncerainty as L1 distance between 0.0 and the logit prediction in 'logits' for the
-        foreground class in `classes`.
+    For each location of the prediction `sem_seg_logits` we estimate uncerainty as the
+        difference between top first and top second predicted logits.
     Args:
-        logits (Tensor): A tensor of shape (R, 1, ...) for class-specific or
-            class-agnostic, where R is the total number of predicted masks in all images and C is
-            the number of foreground classes. The values are logits.
+        mask_logits (Tensor): A tensor of shape (N, C, ...), where N is the minibatch size and
+            C is the number of foreground classes. The values are logits.
     Returns:
-        scores (Tensor): A tensor of shape (R, 1, ...) that contains uncertainty scores with
+        scores (Tensor): A tensor of shape (N, 1, ...) that contains uncertainty scores with
             the most uncertain locations having the highest uncertainty score.
+
+    Taken from https://github.com/facebookresearch/detectron2/blob/main/projects/PointRend/point_rend/semantic_seg.py
     """
-    assert logits.shape[1] == 1
-    gt_class_logits = logits.clone()
-    return -(torch.abs(gt_class_logits))
+    top2_scores = torch.topk(sem_seg_logits, k=2, dim=1)[0]
+    return (top2_scores[:, 1] - top2_scores[:, 0]).unsqueeze(1)
 
 
 @SEM_SEG_HEADS_REGISTRY.register()
