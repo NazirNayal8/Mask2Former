@@ -115,7 +115,7 @@ class PerPixelBaselineHead(nn.Module):
 
     def losses(self, predictions, targets):
         predictions = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
-        print(predictions.shape, targets.shape)
+        
         predictions = F.interpolate(
             predictions, scale_factor=self.common_stride, mode="bilinear", align_corners=False
         )
@@ -224,7 +224,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             In inference, returns (CxHxW logits, {})
         """
         x, aux_outputs = self.layers(features)
-        if not self.training:
+        if self.training:
             if self.deep_supervision:
                 losses = self.losses(x, targets)
                 for i, aux_output in enumerate(aux_outputs):
