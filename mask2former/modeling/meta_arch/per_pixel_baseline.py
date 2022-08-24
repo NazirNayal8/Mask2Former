@@ -162,6 +162,7 @@ class PerPixelBaselineHead(nn.Module):
             point_labels = point_sample(
                 targets.float(),
                 point_coords,
+                mode="nearest",
                 align_corners=False,
             ).squeeze(1).long()
 
