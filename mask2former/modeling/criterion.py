@@ -168,10 +168,10 @@ class SetCriterion(nn.Module):
             )
             # get gt labels
             point_labels = point_sample(
-                target_masks.float(),
+                target_masks,
                 point_coords,
                 align_corners=False,
-            ).squeeze(1).long()
+            ).squeeze(1)
 
         point_logits = point_sample(
             src_masks,

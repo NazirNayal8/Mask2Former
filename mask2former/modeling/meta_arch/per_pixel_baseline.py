@@ -160,10 +160,10 @@ class PerPixelBaselineHead(nn.Module):
             )
             # get gt labels
             point_labels = point_sample(
-                targets,
+                targets.float(),
                 point_coords,
                 align_corners=False,
-            ).squeeze(1)
+            ).squeeze(1).long()
 
         point_logits = point_sample(
             predictions,
