@@ -218,6 +218,9 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
         num_classes: int,
         pixel_decoder: nn.Module,
         loss_weight: float = 1.0,
+        num_points: int,
+        oversample_ratio,
+        importance_sample_ratio,
         ignore_value: int = -1,
     ):
         """
@@ -239,6 +242,9 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             pixel_decoder=pixel_decoder,
             loss_weight=loss_weight,
             ignore_value=ignore_value,
+            num_points=num_points,
+            oversample_ratio=oversample_ratio,
+            importance_sample_ratio=importance_sample_ratio
         )
 
         del self.predictor
