@@ -73,10 +73,11 @@ class Cityscapes(data.Dataset):
         self.root = os.path.expanduser(hparams.dataset_root)
         self.mode = mode
         self.target_type = target_type
-        self.images_dir = os.path.join(self.root, 'leftImg8bit_trainvaltest/leftImg8bit/', split)
+        self.images_dir = os.path.join(self.root, 'leftImg8bit', split)
         
-        self.targets_dir = os.path.join(self.root, self.mode + '_trainvaltest/gtFine', split)
+        self.targets_dir = os.path.join(self.root, 'gtFine', split)
         # self.targets_dir = self.images_dir
+        
 
         self.transform = transform
 

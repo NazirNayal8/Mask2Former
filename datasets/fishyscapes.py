@@ -77,7 +77,7 @@ class FishyscapesStatic(Dataset):
         self.hparams = hparams
         self.transforms = transforms
 
-        labels_root = os.path.join(hparams.dataset_root, 'fs_val_v3')
+        labels_root = os.path.join(hparams.dataset_root, 'fs_val_v1')
         images_root = os.path.join(hparams.dataset_root, 'fs_static_images')
         files = os.listdir(labels_root)
 
