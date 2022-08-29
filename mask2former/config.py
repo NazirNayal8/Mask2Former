@@ -117,7 +117,7 @@ def add_maskformer2_config(cfg):
 
     # Ablations
     cfg.SOLVER.FORCE_REGION_PARTITION = False
-
+    cfg.MODEL.MASK_FORMER.USE_POINT_REND = False
     # logger
     cfg.SOLVER.USE_WANDB = False
     cfg.SOLVER.WANDB_PROJECT = 'mask2former'

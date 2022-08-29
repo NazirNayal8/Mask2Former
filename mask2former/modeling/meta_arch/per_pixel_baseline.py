@@ -75,6 +75,7 @@ class PerPixelBaselineHead(nn.Module):
         num_classes: int,
         pixel_decoder: nn.Module,
         num_points: int,
+        use_point_rend: bool,
         oversample_ratio,
         importance_sample_ratio,
         loss_weight: float = 1.0,
@@ -106,6 +107,7 @@ class PerPixelBaselineHead(nn.Module):
         weight_init.c2_msra_fill(self.predictor)
 
         # point rend params
+        self.use_point_rend = use_point_rend
         self.num_points = num_points
         self.oversample_ratio = oversample_ratio
         self.importance_sample_ratio = importance_sample_ratio
@@ -123,6 +125,7 @@ class PerPixelBaselineHead(nn.Module):
             "num_points": cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
             "oversample_ratio": cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
             "importance_sample_ratio": cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
+            "use_point_rend": cfg.MODEL.MASK_FORMER.USE_POINT_REND
         }
 
     def forward(self, features, targets=None):
@@ -148,33 +151,47 @@ class PerPixelBaselineHead(nn.Module):
     def losses(self, predictions, targets):
         predictions = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
         
-        targets = targets[:, None]
-        with torch.no_grad():
-            # sample point_coords
-            point_coords = get_uncertain_point_coords_with_randomness(
-                predictions,
-                lambda logits: calculate_uncertainty(logits),
-                self.num_points,
-                self.oversample_ratio,
-                self.importance_sample_ratio,
-            )
-            # get gt labels
-            point_labels = point_sample(
-                targets.float(),
-                point_coords,
-                mode="nearest",
-                align_corners=False,
-            ).squeeze(1).long()
+        if self.use_point_rend:
+            targets = targets[:, None]
+            with torch.no_grad():
+                # sample point_coords
+                point_coords = get_uncertain_point_coords_with_randomness(
+                    predictions,
+                    lambda logits: calculate_uncertainty(logits),
+                    self.num_points,
+                    self.oversample_ratio,
+                    self.importance_sample_ratio,
+                )
+                # get gt labels
+                point_labels = point_sample(
+                    targets.float(),
+                    point_coords,
+                    mode="nearest",
+                    align_corners=False,
+                ).squeeze(1).long()
 
-        point_logits = point_sample(
-            predictions,
-            point_coords,
-            align_corners=False,
-        )
+            point_logits = point_sample(
+                predictions,
+                point_coords,
+                align_corners=False,
+            )
         
-        loss = F.cross_entropy(
-            point_logits, point_labels, reduction="mean", ignore_index=self.ignore_value
-        )
+            loss = F.cross_entropy(
+                point_logits, point_labels, reduction="mean", ignore_index=self.ignore_value
+            )
+        else:
+            predictions = F.interpolate(
+                predictions, scale_factor=self.common_stride, mode="bilinear", align_corners=False
+            )
+            print("logits stats: (Min, Max, Mean, STD) ", 
+                predictions.min().cpu().item(),
+                predictions.max().cpu().item(),
+                predictions.mean().cpu().item(),
+                predictions.std().cpu().item(),
+            )
+            loss = F.cross_entropy(
+                predictions, targets, reduction="mean", ignore_index=self.ignore_value
+            )
         losses = {"loss_sem_seg": loss * self.loss_weight}
         return losses
 
@@ -219,6 +236,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
         pixel_decoder: nn.Module,
         loss_weight: float = 1.0,
         num_points: int,
+        use_point_rend: bool,
         oversample_ratio,
         importance_sample_ratio,
         ignore_value: int = -1,
@@ -242,6 +260,7 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
             pixel_decoder=pixel_decoder,
             loss_weight=loss_weight,
             ignore_value=ignore_value,
+            use_point_rend=use_point_rend,
             num_points=num_points,
             oversample_ratio=oversample_ratio,
             importance_sample_ratio=importance_sample_ratio
