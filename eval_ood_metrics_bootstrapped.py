@@ -124,6 +124,11 @@ dataset_group = [
 
 
 records = edict()
+save_path = 'metrics/ood_metrics_bootstrap.pkl'
+if os.path.exists(save_path):
+    with open(save_path, 'rb') as f:
+        records = pickle.load(f)
+print("Initial Records", records)
 
 def get_model(config_path, model_path):
     
@@ -148,9 +153,10 @@ def get_logits(model, x, **kwargs):
 
 
 def save_records():
+    
 
     print(records)
-    with open('metrics/ood_metrics_bootstrap.pkl', 'wb') as f:
+    with open(save_path, 'wb') as f:
         pickle.dump(records, f)
 
 def bootstrap_evaluation(evaluator, dataset):
@@ -214,8 +220,18 @@ def run_evaluations(model_name, config_path, model_path):
 def main():
 
     models_list = os.listdir('model_logs')
+    exclude = [ 
+        "swin_l_official",
+        "mask2former_swin_b_replication",
+        "mask2former_per_pixel",
+        "mask2former_forced_partition",
+        "mask2former_dec_layers_4"
+    ]
     for model_name in models_list:
-        
+        if model_name  in exclude:
+            continue
+        if model_name[-4:] == 'yaml':
+            continue
         config_path = os.path.join('model_logs', model_name, 'config.yaml')
         
         model_path = os.path.join('model_logs', model_name, 'model_final.pth')
