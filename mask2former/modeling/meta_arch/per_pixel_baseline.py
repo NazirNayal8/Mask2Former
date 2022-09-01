@@ -37,6 +37,15 @@ def calculate_uncertainty(sem_seg_logits):
     return (top2_scores[:, 1] - top2_scores[:, 0]).unsqueeze(1)
 
 
+def print_stats(x: torch.Tensor, name: str):
+    
+    print(f"{name}: (Min, Max, Mean, STD) ", 
+        x.min().cpu().item(),
+        x.max().cpu().item(),
+        x.mean().cpu().item(),
+        x.std().cpu().item(),
+    )
+
 @SEM_SEG_HEADS_REGISTRY.register()
 class PerPixelBaselineHead(nn.Module):
 
@@ -183,12 +192,9 @@ class PerPixelBaselineHead(nn.Module):
             predictions = F.interpolate(
                 predictions, scale_factor=self.common_stride, mode="bilinear", align_corners=False
             )
-            print("logits stats: (Min, Max, Mean, STD) ", 
-                predictions.min().cpu().item(),
-                predictions.max().cpu().item(),
-                predictions.mean().cpu().item(),
-                predictions.std().cpu().item(),
-            )
+
+            print_stats(predictions, "logit stats")
+
             loss = F.cross_entropy(
                 predictions, targets, reduction="mean", ignore_index=self.ignore_value
             )
@@ -320,9 +326,9 @@ class PerPixelBaselinePlusHead(PerPixelBaselineHead):
 
     def layers(self, features):
 
-
-        mask_features, transformer_encoder_features, _ = self.pixel_decoder.forward_features(features)
+       
         if self.transformer_in_feature == "transformer_encoder":
+            mask_features, transformer_encoder_features, _ = self.pixel_decoder.forward_features(features)
             assert (
                 transformer_encoder_features is not None
             ), "Please use the TransformerEncoderPixelDecoder."

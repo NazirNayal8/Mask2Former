@@ -13,6 +13,14 @@ from detectron2.layers import Conv2d
 from .position_encoding import PositionEmbeddingSine
 from .maskformer_transformer_decoder import TRANSFORMER_DECODER_REGISTRY
 
+def print_stats(x: torch.Tensor, name: str):
+    
+    print(f"{name}: (Min, Max, Mean, STD) ", 
+        x.min().cpu().item(),
+        x.max().cpu().item(),
+        x.mean().cpu().item(),
+        x.std().cpu().item(),
+    )
 
 class SelfAttentionLayer(nn.Module):
 
@@ -438,7 +446,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         outputs_class = self.class_embed(decoder_output)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
-
+        
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
         attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
@@ -676,6 +684,7 @@ class MultiScalePerPixelDecoder(nn.Module):
             predictions_mask.append(outputs_mask)
 
         assert len(predictions_mask) == self.num_layers + 1
+        
 
         out = {
             'pred_masks': predictions_mask[-1],
@@ -688,7 +697,6 @@ class MultiScalePerPixelDecoder(nn.Module):
         decoder_output = decoder_output.transpose(0, 1)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
-
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
         attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)

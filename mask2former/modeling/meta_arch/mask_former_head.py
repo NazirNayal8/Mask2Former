@@ -14,6 +14,14 @@ from detectron2.modeling import SEM_SEG_HEADS_REGISTRY
 from ..transformer_decoder.maskformer_transformer_decoder import build_transformer_decoder
 from ..pixel_decoder.fpn import build_pixel_decoder
 
+def print_stats(x, name):
+    
+    print(f"{name}: (Min, Max, Mean, STD) ", 
+        x.min().cpu().item(),
+        x.max().cpu().item(),
+        x.mean().cpu().item(),
+        x.std().cpu().item(),
+    )
 
 @SEM_SEG_HEADS_REGISTRY.register()
 class MaskFormerHead(nn.Module):
@@ -120,6 +128,8 @@ class MaskFormerHead(nn.Module):
     def layers(self, features, mask=None):
         mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features)
         if self.transformer_in_feature == "multi_scale_pixel_decoder":
+            
+
             predictions = self.predictor(multi_scale_features, mask_features, mask)
         elif self.transformer_in_feature == 'simple_transformer_decoder':
             predictions = self.predictor(mask_features, mask)

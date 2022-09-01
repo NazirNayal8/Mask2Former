@@ -19,6 +19,15 @@ from ..transformer_decoder.transformer import _get_clones, _get_activation_fn
 from .ops.modules import MSDeformAttn
 
 
+def print_stats(x: torch.Tensor, name: str):
+    
+    print(f"{name}: (Min, Max, Mean, STD) ", 
+        x.min().cpu().item(),
+        x.max().cpu().item(),
+        x.mean().cpu().item(),
+        x.std().cpu().item(),
+    )
+
 # MSDeformAttn Transformer encoder in deformable detr
 class MSDeformAttnTransformerEncoderOnly(nn.Module):
     def __init__(self, d_model=256, nhead=8,
