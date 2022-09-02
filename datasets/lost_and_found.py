@@ -45,22 +45,10 @@ class LostAndFound(Dataset):
         label = label[:, :, 0]
         label[label == 1] -= 1
         label[label == 2] -= 1
-
+        
         aug = self.transforms(image=image, mask=label)
         image = aug['image']
         label = aug['mask']
-
-        if self.hparams.test_image_strategy == 'multi_scale':
-
-            images = []
-            for sz in self.hparams.test_image_sizes:
-                new_size = [
-                    sz,
-                    round_to_nearest_multiple(sz * self.hparams.test_hw_ratio, self.hparams.seg_downsample_rate)
-                ]
-                images.extend([resize(image, size=new_size)])
-
-            image = images
 
         return image, label.type(torch.LongTensor)
 

@@ -30,7 +30,7 @@ parser.add_argument('--trials', type=int, default=20, help="number of times to r
 parser.add_argument('--batch_size', type=int, default=1, help="Batch Size used in evaluation")
 parser.add_argument('--num_workers', type=int, default=15, help="Number of threads used in data loader")
 parser.add_argument('--device', type=str, default='cuda', help="cpu or cuda, the device used for evaluation")
-
+parser.add_argument('--out_path', type=str, default='metrics/ood_metrics_bootstrap.pkl', help='output file for saving the results')
 
 
 args = parser.parse_args()
@@ -124,7 +124,8 @@ dataset_group = [
 
 
 records = edict()
-save_path = 'metrics/ood_metrics_bootstrap.pkl'
+save_path = args.out_path
+
 if os.path.exists(save_path):
     with open(save_path, 'rb') as f:
         records = pickle.load(f)
@@ -220,15 +221,9 @@ def run_evaluations(model_name, config_path, model_path):
 def main():
 
     models_list = os.listdir('model_logs')
-    exclude = [ 
-        "swin_l_official",
-        "mask2former_swin_b_replication",
-        "mask2former_per_pixel",
-        "mask2former_forced_partition",
-        "mask2former_dec_layers_4"
-    ]
+    exclude = []
     for model_name in models_list:
-        if model_name  in exclude:
+        if model_name in exclude:
             continue
         if model_name[-4:] == 'yaml':
             continue
